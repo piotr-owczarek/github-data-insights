@@ -12,13 +12,13 @@ variable "region" {
 
 variable "credentials" {
   description = "The path to the service account key file"
-  default     = "./keys/gcp-service-acc.json"
+  default     = "../.keys/gcp-service-acc.json"
 }
 
 variable "gcs_bucket_name" {
   description = "The name of the GCS bucket to create"
   type        = string
-  default     = "github-raw-data"
+  default     = "gharchive_raw"
 }
 
 variable "location" {
@@ -30,5 +30,5 @@ variable "location" {
 variable "bq_dataset_name" {
   description = "The name of the BigQuery dataset to create"
   type        = string
-  default     = "github-raw"
+  default     = "gharchive_raw"
 }

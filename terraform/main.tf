@@ -13,7 +13,7 @@ provider "google" {
   credentials = file(var.credentials)
 }
 
-resource "google_storage_bucket" "github-raw-data-bucket" {
+resource "google_storage_bucket" "github_raw_bucket" {
   name          = var.gcs_bucket_name
   location      = var.location
   force_destroy = true
@@ -28,7 +28,7 @@ resource "google_storage_bucket" "github-raw-data-bucket" {
   }
 }
 
-resource "google_bigquery_dataset" "demo_dataset" {
+resource "google_bigquery_dataset" "github_raw_dataset" {
   dataset_id = var.bq_dataset_name
   location   = var.location
 }
