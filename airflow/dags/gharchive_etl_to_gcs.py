@@ -41,7 +41,7 @@ def extract_relevant_fields(event):
         "id": event.get("id"),
         "type": event.get("type"),
         "public": event.get("public"),
-        "created_at": event.get("created_at"),
+        "created_at": event.get("created_at"),   
         "actor_login": event.get("actor", {}).get("login"),
         "repo_name": event.get("repo", {}).get("name"),
         "org_login": event.get("org", {}).get("login")

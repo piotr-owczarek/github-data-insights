@@ -30,5 +30,11 @@ variable "location" {
 variable "bq_dataset_name" {
   description = "The name of the BigQuery dataset to create"
   type        = string
-  default     = "gharchive_raw"
+  default     = "gharchive_data"
+}
+
+variable "bq_table_name" {
+  description = "The name of the BigQuery table to create"
+  type        = string
+  default     = "raw_events"
 }
