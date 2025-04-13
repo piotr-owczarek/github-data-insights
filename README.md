@@ -23,7 +23,9 @@ To solve these problems, I’ve created a data pipeline that runs on a scheduled
         * Uploads the Parquet file to [Google Cloud Storage](https://cloud.google.com/storage) (if it doesn’t already exist).
         * Cleans up local temporary files.
 4. Data Processing & Loading:
-    * The pipeline then triggers a `PySpark` script via [Dataproc](https://cloud.google.com/dataproc) to populate three fact tables in [BigQuery](https://cloud.google.com/bigquery), optimized using partitioning and clustering.
+    * The pipeline then triggers a `PySpark` script via [Dataproc](https://cloud.google.com/dataproc) to populate three fact tables in [BigQuery](https://cloud.google.com/bigquery), optimized using:
+       * partitioning - on type `DAY` by field `date`, makes queries faster and cheaper because BigQuery can scan only the needed date ranges instead of the whole table.
+       * clustering - by fields `user_type`, `hour`, `organization`, `repository`, it speeds up filtering and grouping queries by those fields — like if you're looking at only bots vs humans, or a specific repo's activity.
 5. Visualization:
     * The data is visualized in [Looker Studio](https://lookerstudio.google.com), which automatically refreshes with new data.
     * Take a look at my [dashboard](https://lookerstudio.google.com/reporting/e55847a7-9a5d-4fee-97d7-e81942d6596f) created for this project.
@@ -59,8 +61,8 @@ Please ensure Docker and Terraform are installed and working on your machine.
 ### Reproduction Steps
 1. Navigate to the `terraform` folder.
     * Configure `variables.tf` with your project-specific values.
-    > ![NOTE]
-    > Instructions are provided inside the file.
+> [!NOTE]
+> Instructions are included in the file.
 2. Initialize and apply the Terraform configuration in the terminal:
     ```
     terraform init
