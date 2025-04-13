@@ -1,0 +1,22 @@
+[
+    {
+      "name": "date",
+      "type": "DATE",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "repository",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "organization",
+      "type": "STRING",
+      "mode": "NULLABLE"
+    },
+    {
+      "name": "event_count",
+      "type": "INTEGER",
+      "mode": "NULLABLE"
+    }
+  ]

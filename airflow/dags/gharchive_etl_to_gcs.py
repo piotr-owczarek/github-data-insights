@@ -1,6 +1,6 @@
 import os
-import gzip
 import json
+import gzip
 import requests
 import pandas as pd
 from google.cloud import storage
@@ -8,11 +8,23 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+from airflow.providers.google.cloud.operators.dataproc import DataprocSubmitJobOperator
+from airflow.exceptions import AirflowSkipException
+from airflow.models import Connection
+from airflow import settings
 
-# Set environment variable for GCP auth
+# Set environment variables
 creds = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 bucket_name = os.environ.get("BUCKET_NAME")
+cluster_name = os.environ.get("CLUSTER_NAME")
+cluster_region = os.environ.get("CLUSTER_REGION")
+fact_user_activity = os.environ.get("FACT_USER_ACTIVITY")
+fact_repo_popularity = os.environ.get("FACT_REPO_POPULARITY")
+fact_hourly_activity = os.environ.get("FACT_HOURLY_ACTIVITY")
+bq_dataset = os.environ.get("BQ_DATASET")
+project_id = os.environ.get("GCP_PROJECT_ID")
 
+# Set Airflow variables
 current_date = '{{data_interval_start.strftime(\'%Y-%m-%d\')}}'
 current_run = '{{data_interval_start.strftime(\'%Y-%m-%d-%-H\')}}'
 
@@ -27,8 +39,8 @@ def download_file(current_date, current_run):
     print(f"Processing {current_run} UTC")
     if file_exists_in_gcs(current_date, current_run):
         print("File already exists in GCS. Skipping download.")
-        return
-
+        raise AirflowSkipException("File already exists in GCS. Skipping download.")
+    
     url = f"https://data.gharchive.org/{current_run}.json.gz"
     response = requests.get(url, stream=True)
 
@@ -40,11 +52,10 @@ def extract_relevant_fields(event):
     return {
         "id": event.get("id"),
         "type": event.get("type"),
-        "public": event.get("public"),
-        "created_at": event.get("created_at"),   
-        "actor_login": event.get("actor", {}).get("login"),
-        "repo_name": event.get("repo", {}).get("name"),
-        "org_login": event.get("org", {}).get("login")
+        "created_at": event.get("created_at"),
+        "user": event.get("actor", {}).get("login"),
+        "repository": event.get("repo", {}).get("name"),
+        "organization": event.get("org", {}).get("login"),
     }
 
 def to_parquet(current_run):
@@ -81,20 +92,35 @@ def upload_to_gcs(current_date, current_run):
         timeout=60 * 3
         )
 
+def create_gcp_connection():
+    conn_id = "my_gcp_conn"
+    conn = Connection(
+        conn_id=conn_id,
+        conn_type="google_cloud_platform",
+        extra={
+            "project": project_id,
+            "key_path": creds
+        }
+    )
+    session = settings.Session()
+    if not session.query(Connection).filter(Connection.conn_id == conn_id).first():
+        session.add(conn)
+        session.commit()
+
 
 with DAG(
     dag_id='gharchive_etl_to_gcs',
     default_args = {
         'owner': 'piotr',
-        'depends_on_past': False,
-        'retries': 3,
+        'depends_on_past': True,
+        'retries': 2,
         'retry_delay': timedelta(minutes=5)
         },
-    start_date=datetime.today() - timedelta(days=1),
-    schedule_interval='15 * * * *',
+    start_date=datetime.today() - timedelta(days=7), #Backfilling for 7 days, change as needed
+    schedule_interval='15 * * * *', #Hourly at 15 minutes past the hour
     catchup=True,  # Enables backfilling
-    max_active_runs=1, # Ensures only one DAG run is active at a time, so it doesn't purge other runs' files
-    tags=['gharchive', 'gcs'],
+    max_active_runs=5, # Allows multiple runs, change to lower number if local resources are limited
+    tags=['gharchive'],
 ) as dag:
 
     download_file_task = PythonOperator(
@@ -125,7 +151,35 @@ with DAG(
 
     purge_files_task = BashOperator(
         task_id='purge_files',
-        bash_command='rm -f /tmp/*.json.gz && rm -f /tmp/*.parquet',
+        bash_command=f'rm -f /tmp/{current_run}.json.gz && rm -f /tmp/{current_run}.parquet',
     )
 
-    download_file_task >> to_parquet_task >> upload_to_gcs_task >> purge_files_task
+    gcp_connection_task = PythonOperator(
+        task_id='create_gcp_connection',
+        python_callable=create_gcp_connection,
+    )
+
+    dataproc_job = {
+        "reference": {"project_id": project_id},
+        "placement": {"cluster_name": cluster_name},
+        "pyspark_job": {
+            "main_python_file_uri": f'gs://{bucket_name}/dataproc/gharchive_transform.py',
+            "args": [
+                '--input_path', f'gs://{bucket_name}/{current_date}/{current_run}.parquet',
+                '--fact_user_activity', f'{bq_dataset}.{fact_user_activity}',
+                '--fact_repo_popularity', f'{bq_dataset}.{fact_repo_popularity}',
+                '--fact_hourly_activity', f'{bq_dataset}.{fact_hourly_activity}'
+            ]
+        },
+    }
+
+    dataproc_processing_task = DataprocSubmitJobOperator(
+        task_id="dataproc_processing",
+        job=dataproc_job,
+        region=cluster_region,
+        project_id=project_id,
+        gcp_conn_id="my_gcp_conn"
+    )
+
+
+    download_file_task >> to_parquet_task >> upload_to_gcs_task >> purge_files_task >> gcp_connection_task >> dataproc_processing_task 

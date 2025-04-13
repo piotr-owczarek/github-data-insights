@@ -2,7 +2,8 @@
 *.tfstate
 *.tfstate.backup
 .terraform
-.env
 *__pycache__*
 *logs
 *gcp-service-acc.json
+/airflow/config*
+/airflow/plugins*

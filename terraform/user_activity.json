@@ -1,0 +1,22 @@
+[
+  {
+    "name": "date",
+    "type": "DATE",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "hour",
+    "type": "INTEGER",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "user_type",
+    "type": "STRING",
+    "mode": "NULLABLE"
+  },
+  {
+    "name": "event_count",
+    "type": "INTEGER",
+    "mode": "NULLABLE"
+  }
+]
