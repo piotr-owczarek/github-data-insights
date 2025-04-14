@@ -38,7 +38,6 @@ def file_exists_in_gcs(current_date, current_run):
 def download_file(current_date, current_run):
     print(f"Processing {current_run} UTC")
     if file_exists_in_gcs(current_date, current_run):
-        print("File already exists in GCS. Skipping download.")
         raise AirflowSkipException("File already exists in GCS. Skipping download.")
     
     url = f"https://data.gharchive.org/{current_run}.json.gz"
